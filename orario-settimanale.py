@@ -18,108 +18,113 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-""" Questo programma permette di avere sottomano un orario settimanale """
+""" This program allows you to get a nice weekly agenda :) """
 
+# This is where orario-settimanale.py places its simple database
+dbfilename = "agenda.db"
+
+# Importing QT4 graphical toolkit and some built-in python libs
 from PyQt4 import QtGui, QtCore
-from sys import argv, exit
-import shelve
+import itertools, shelve, sys
 
-class Tabella(QtGui.QWidget):
+# Lambdas made for import/export of text from/to QTableWidget
+fromQtToPlain = lambda data: str(data.text().toUtf8())
+fromPlainToQt = lambda data: QtGui.QTableWidgetItem(data.decode("utf-8"))
+
+class MainWidget(QtGui.QWidget):
     def __init__(self, parent = None):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
         
+        # Defaults settings - Italian language
         days = (u"Lunedì", u"Martedì", u"Mercoledì",
                 u"Giovedì", u"Venerdì", u"Sabato")
         hours = ("8.15", "9.15", "10.15", "11.15", "12.15", "13.15",
                  "14.15", "15.15", "16.15", "17.15", "18.15")
         
-        self.tabella = QtGui.QTableWidget(len(hours), len(days))
-        self.tabella.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
-        self.tabella.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
-        self.tabella.setHorizontalHeaderLabels(QtCore.QStringList(days))
-        self.tabella.setVerticalHeaderLabels(QtCore.QStringList(hours))
+        # Indexes of columns and rows, in order to iterate them quickly
+        self.columnIndex, self.rowIndex = range(len(hours)), range(len(days))
         
-        for c in xrange(self.tabella.columnCount()):
-            for r in xrange(self.tabella.rowCount()):
-                self.tabella.setItem(r, c, QtGui.QTableWidgetItem())
+        # Initialization and population of self.table
+        self.table = QtGui.QTableWidget(len(hours), len(days))
+        self.table.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        self.table.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        self.table.setHorizontalHeaderLabels(QtCore.QStringList(days))
+        self.table.setVerticalHeaderLabels(QtCore.QStringList(hours))
+        for column, row in itertools.product(self.columnIndex, self.rowIndex):
+            self.table.setItem(row, column, QtGui.QTableWidgetItem())
         
+        # Inizialization of self.notes
         self.notes = QtGui.QTextEdit()
         
+        # Setting up layout
         layout = QtGui.QGridLayout()
-        layout.addWidget(self.tabella, 0, 0)
+        layout.addWidget(self.table, 0, 0)
         layout.addWidget(self.notes, 0, 1)
         layout.setColumnStretch(0, 3)
         layout.setColumnStretch(1, 1)
         self.setLayout(layout)
+    
+    def load(self):
+        """ It reads the information from the database """
+        db = shelve.open(dbfilename, "r")
+        table = db["table"]
+        notes = db["notes"]
+        db.close()
+        for column, row in itertools.product(self.columnIndex, self.rowIndex):
+            self.table.setItem(row, column, fromPlainToQt(table[column][row]))
+        self.notes.setHtml(notes)
+    
+    def save(self):
+        """ It writes the information on the database """
+        table = [[fromQtToPlain(self.table.item(row, column))
+                 for row in self.rowIndex] for column in self.columnIndex]
+        notes = self.notes.toHtml()
+        db = shelve.open(dbfilename, "n")
+        db["table"] = table
+        db["notes"] = notes
+        db.close()
 
-class Orario(QtGui.QMainWindow):
+class Agenda(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
         
+        # Setting up title and geometry of the window
         self.setWindowTitle("Orario settimanale")
-        
         screen = QtGui.QDesktopWidget().screenGeometry()
         width, height = 1000, 400
-        self.setGeometry((screen.width() - width) / 2,
-            (screen.height() - height) / 2, width, height)
+        self.setGeometry((screen.width()-width)/2, (screen.height()-height)/2,
+                         width, height)
         
+        # Setting up MainWidget
+        self.mainWidget = MainWidget(self)
+        self.setCentralWidget(self.mainWidget)
+        
+        # Setting up actions toolbar
         self.toolbar = QtGui.QToolBar("Actions")
-        button_style = QtCore.Qt.ToolButtonTextBesideIcon
-        
-        apri = QtGui.QToolButton()
-        apri.setText("Apri")
-        apri.setIcon(QtGui.QIcon("icons/document-open.png"))
-        apri.setToolButtonStyle(button_style)
-        self.connect(apri, QtCore.SIGNAL("clicked()"), self.apri_action)
-        self.toolbar.addWidget(apri)
-        
-        salva = QtGui.QToolButton()
-        salva.setText("Salva")
-        salva.setIcon(QtGui.QIcon("icons/document-save.png"))
-        salva.setToolButtonStyle(button_style)
-        self.connect(salva, QtCore.SIGNAL("clicked()"), self.salva_action)
-        self.toolbar.addWidget(salva)
-        
+        self.addToolButton("Apri", "document-open", self.mainWidget.load)
+        self.addToolButton("Salva", "document-save", self.mainWidget.save)
         self.toolbar.addSeparator()
-        
-        esci = QtGui.QToolButton()
-        esci.setText("Esci")
-        esci.setIcon(QtGui.QIcon("icons/application-exit.png"))
-        esci.setToolButtonStyle(button_style)
-        self.connect(esci, QtCore.SIGNAL("clicked()"),
-                     QtGui.qApp, QtCore.SLOT("quit()"))
-        self.toolbar.addWidget(esci)
-        
+        self.addToolButton("Esci", "application-exit",
+                           QtGui.qApp, QtCore.SLOT("quit()"))
         self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolbar)
-        
-        self.tabella = Tabella(self)
-        self.setCentralWidget(self.tabella)
     
-    def apri_action(self):
-        db = shelve.open("orario.db", "r")
-        data = db["data"]
-        notes = db["notes"]
-        self.tabella.notes.setHtml(notes)
-        db.close()
-        for c, column in enumerate(data):
-            for r, row in enumerate(column):
-                self.tabella.tabella.item(r, c).setText(row.decode("utf-8"))
-    
-    def salva_action(self):
-        data = []
-        for column in xrange(self.tabella.tabella.columnCount()):
-            data.append([])
-            for row in xrange(self.tabella.tabella.rowCount()):
-                item = self.tabella.tabella.item(row, column)
-                data[-1].append(str(item.text().toUtf8()))
-        db = shelve.open("orario.db", "c")
-        db["data"] = data
-        db["notes"] = self.tabella.notes.toHtml()
-        db.close()
+    def addToolButton(self, text, icon, *args):
+        """ It adds the generated button to the toolbar """
+        button = QtGui.QToolButton()
+        button.setText(text)
+        button.setIcon(QtGui.QIcon("icons/%s.png" % icon))
+        button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.connect(button, QtCore.SIGNAL("clicked()"), *args)
+        self.toolbar.addWidget(button)
+
+def main():
+    """ Setting up the program """
+    application = QtGui.QApplication(sys.argv)
+    agenda = Agenda()
+    agenda.show()
+    sys.exit(application.exec_())
 
 if __name__ == "__main__":
-    APP = QtGui.QApplication(argv)
-    ORARIO = Orario()
-    ORARIO.show()
-    exit(APP.exec_())
+    main()
+
