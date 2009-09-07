@@ -22,6 +22,7 @@
 
 from PyQt4 import QtGui, QtCore
 from sys import argv, exit
+import shelve
 
 class Tabella(QtGui.QWidget):
     def __init__(self, parent = None):
@@ -38,6 +39,10 @@ class Tabella(QtGui.QWidget):
         self.tabella.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
         self.tabella.setHorizontalHeaderLabels(QtCore.QStringList(days))
         self.tabella.setVerticalHeaderLabels(QtCore.QStringList(hours))
+        
+        for c in xrange(self.tabella.columnCount()):
+            for r in xrange(self.tabella.rowCount()):
+                self.tabella.setItem(r, c, QtGui.QTableWidgetItem())
         
         self.notes = QtGui.QTextEdit()
         
@@ -59,8 +64,59 @@ class Orario(QtGui.QMainWindow):
         self.setGeometry((screen.width() - width) / 2,
             (screen.height() - height) / 2, width, height)
         
+        self.toolbar = QtGui.QToolBar("Actions")
+        button_style = QtCore.Qt.ToolButtonTextBesideIcon
+        
+        apri = QtGui.QToolButton()
+        apri.setText("Apri")
+        apri.setIcon(QtGui.QIcon("icons/document-open.png"))
+        apri.setToolButtonStyle(button_style)
+        self.connect(apri, QtCore.SIGNAL("clicked()"), self.apri_action)
+        self.toolbar.addWidget(apri)
+        
+        salva = QtGui.QToolButton()
+        salva.setText("Salva")
+        salva.setIcon(QtGui.QIcon("icons/document-save.png"))
+        salva.setToolButtonStyle(button_style)
+        self.connect(salva, QtCore.SIGNAL("clicked()"), self.salva_action)
+        self.toolbar.addWidget(salva)
+        
+        self.toolbar.addSeparator()
+        
+        esci = QtGui.QToolButton()
+        esci.setText("Esci")
+        esci.setIcon(QtGui.QIcon("icons/application-exit.png"))
+        esci.setToolButtonStyle(button_style)
+        self.connect(esci, QtCore.SIGNAL("clicked()"),
+                     QtGui.qApp, QtCore.SLOT("quit()"))
+        self.toolbar.addWidget(esci)
+        
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.toolbar)
+        
         self.tabella = Tabella(self)
         self.setCentralWidget(self.tabella)
+    
+    def apri_action(self):
+        db = shelve.open("orario.db", "r")
+        data = db["data"]
+        notes = db["notes"]
+        self.tabella.notes.setHtml(notes)
+        db.close()
+        for c, column in enumerate(data):
+            for r, row in enumerate(column):
+                self.tabella.tabella.item(r, c).setText(row.decode("utf-8"))
+    
+    def salva_action(self):
+        data = []
+        for column in xrange(self.tabella.tabella.columnCount()):
+            data.append([])
+            for row in xrange(self.tabella.tabella.rowCount()):
+                item = self.tabella.tabella.item(row, column)
+                data[-1].append(str(item.text().toUtf8()))
+        db = shelve.open("orario.db", "c")
+        db["data"] = data
+        db["notes"] = self.tabella.notes.toHtml()
+        db.close()
 
 if __name__ == "__main__":
     APP = QtGui.QApplication(argv)
