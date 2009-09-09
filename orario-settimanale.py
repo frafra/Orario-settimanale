@@ -20,8 +20,22 @@
 
 """ This program allows you to get a nice weekly agenda :) """
 
-# This is where orario-settimanale.py places its simple database
-dbfilename = "agenda.db"
+# Default settings (italian language)
+#  * dbfilename -> Where orario-settimanale.py should take its datas
+#  * days       -> The days of the week
+#  * hours      -> The hours that are important in your days
+#  * shift      -> It adds its value to every hour
+settings = {
+    "dbfilename":"agenda.db",
+    "days":"Lunedì Martedì Mercoledì Giovedì Venerdì Sabato",
+    "hours":"8 9 10 11 12 13 14 15 16 17 18",
+    "shift":".15",
+}
+
+# Managing settings
+dbfilename = settings["dbfilename"]
+days = settings["days"].decode("utf-8").split()
+hours = [hour+settings["shift"] for hour in settings["hours"].split()]
 
 # Importing QT4 graphical toolkit and some built-in python libs
 from PyQt4 import QtGui, QtCore
@@ -35,12 +49,6 @@ class MainWidget(QtGui.QWidget):
     def __init__(self, parent = None):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
-        
-        # Defaults settings - Italian language
-        days = (u"Lunedì", u"Martedì", u"Mercoledì",
-                u"Giovedì", u"Venerdì", u"Sabato")
-        hours = ("8.15", "9.15", "10.15", "11.15", "12.15", "13.15",
-                 "14.15", "15.15", "16.15", "17.15", "18.15")
         
         # Indexes of columns and rows, in order to iterate them quickly
         self.columnIndex, self.rowIndex = range(len(hours)), range(len(days))
