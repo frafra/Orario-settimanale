@@ -51,7 +51,7 @@ class MainWidget(QtGui.QWidget):
         self.parent = parent
         
         # Indexes of columns and rows, in order to iterate them quickly
-        self.columnIndex, self.rowIndex = range(len(hours)), range(len(days))
+        self.columnIndex, self.rowIndex = range(len(days)), range(len(hours))
         
         # Initialization and population of self.table
         self.table = QtGui.QTableWidget(len(hours), len(days))
