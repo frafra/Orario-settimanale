@@ -38,11 +38,11 @@ days = settings["days"].decode("utf-8").split()
 hours = [hour+settings["shift"] for hour in settings["hours"].split()]
 
 # Importing QT4 graphical toolkit and some built-in python libs
-from PyQt4 import QtGui, QtCore
+from PySide import QtGui, QtCore
 import itertools, shelve, sys
 
 # Lambdas made for import/export of text from/to QTableWidget
-fromQtToPlain = lambda data: str(data.text().toUtf8())
+fromQtToPlain = lambda data: data.text().encode('utf-8')
 fromPlainToQt = lambda data: QtGui.QTableWidgetItem(data.decode("utf-8"))
 
 class MainWidget(QtGui.QWidget):
@@ -57,8 +57,8 @@ class MainWidget(QtGui.QWidget):
         self.table = QtGui.QTableWidget(len(hours), len(days))
         self.table.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
         self.table.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
-        self.table.setHorizontalHeaderLabels(QtCore.QStringList(days))
-        self.table.setVerticalHeaderLabels(QtCore.QStringList(hours))
+        self.table.setHorizontalHeaderLabels(days)
+        self.table.setVerticalHeaderLabels(hours)
         for column, row in itertools.product(self.columnIndex, self.rowIndex):
             self.table.setItem(row, column, QtGui.QTableWidgetItem())
         
